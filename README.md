@@ -143,7 +143,7 @@ class AppCuidadoAnimal:
 
         self.btn_actualizar = tk.Button(
             btn_frame,
-            text="✏️ Actualizar",
+            text=" Actualizar",
             command=self.actualizar_mascota,
             bg="#3498db",
             fg="white",
@@ -158,7 +158,7 @@ class AppCuidadoAnimal:
 
         btn_limpiar = tk.Button(
             btn_frame,
-            text="🗑️ Limpiar",
+            text=" Limpiar",
             command=self.limpiar_campos,
             bg="#95a5a6",
             fg="white",
@@ -449,7 +449,7 @@ class AppCuidadoAnimal:
         nombre = self.mascotas[index].nombre
 
         confirmar = messagebox.askyesno(
-            "⚠️ Confirmar Eliminación",
+            " Confirmar Eliminación",
             f"¿Estás seguro de eliminar a {nombre}?\nEsta acción no se puede deshacer."
         )
 
