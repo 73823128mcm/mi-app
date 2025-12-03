@@ -1,511 +1,515 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, Calendar, Heart, Activity } from 'lucide-react';
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime
+import json
 
-// Simulación de base de datos con almacenamiento local
-const PetCareApp = () => {
-  const [pets, setPets] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [showAddPet, setShowAddPet] = useState(false);
-  const [showAddAppointment, setShowAddAppointment] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingPet, setEditingPet] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    species: '',
-    breed: '',
-    age: '',
-    weight: '',
-    owner: ''
-  });
-  const [appointmentData, setAppointmentData] = useState({
-    petId: '',
-    date: '',
-    time: '',
-    type: '',
-    notes: ''
-  });
-  const [errors, setErrors] = useState({});
+class Mascota:
+    def __init__(self, nombre, tipo, edad, peso, necesidades, fecha_registro=None):
+        self.nombre = nombre
+        self.tipo = tipo
+        self.edad = edad
+        self.peso = peso
+        self.necesidades = necesidades
+        self.fecha_registro = fecha_registro or datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.historial_cuidados = []
 
-  // Cargar datos al iniciar
-  useEffect(() => {
-    const savedPets = localStorage.getItem('pets');
-    const savedAppointments = localStorage.getItem('appointments');
-    if (savedPets) setPets(JSON.parse(savedPets));
-    if (savedAppointments) setAppointments(JSON.parse(savedAppointments));
-  }, []);
+    def agregar_cuidado(self, cuidado):
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.historial_cuidados.append({"fecha": fecha, "descripcion": cuidado})
 
-  // Guardar datos cuando cambien
-  useEffect(() => {
-    localStorage.setItem('pets', JSON.stringify(pets));
-  }, [pets]);
+    def __str__(self):
+        return f"{self.nombre} - {self.tipo} ({self.edad} años) - {self.peso}kg"
 
-  useEffect(() => {
-    localStorage.setItem('appointments', JSON.stringify(appointments));
-  }, [appointments]);
+    def to_dict(self):
+        return {
+            "nombre": self.nombre,
+            "tipo": self.tipo,
+            "edad": self.edad,
+            "peso": self.peso,
+            "necesidades": self.necesidades,
+            "fecha_registro": self.fecha_registro,
+            "historial_cuidados": self.historial_cuidados
+        }
 
-  // Validación de formulario
-  const validatePetForm = () => {
-    const newErrors = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'El nombre es requerido';
-    }
-    
-    if (!formData.species.trim()) {
-      newErrors.species = 'La especie es requerida';
-    }
-    
-    if (formData.age && (isNaN(formData.age) || formData.age < 0)) {
-      newErrors.age = 'La edad debe ser un número positivo';
-    }
-    
-    if (formData.weight && (isNaN(formData.weight) || formData.weight <= 0)) {
-      newErrors.weight = 'El peso debe ser un número positivo';
-    }
-    
-    if (!formData.owner.trim()) {
-      newErrors.owner = 'El nombre del dueño es requerido';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    @staticmethod
+    def from_dict(data):
+        mascota = Mascota(
+            data["nombre"],
+            data["tipo"],
+            data["edad"],
+            data["peso"],
+            data["necesidades"],
+            data.get("fecha_registro")
+        )
+        mascota.historial_cuidados = data.get("historial_cuidados", [])
+        return mascota
 
-  const validateAppointmentForm = () => {
-    const newErrors = {};
-    
-    if (!appointmentData.petId) {
-      newErrors.petId = 'Debe seleccionar una mascota';
-    }
-    
-    if (!appointmentData.date) {
-      newErrors.date = 'La fecha es requerida';
-    }
-    
-    if (!appointmentData.time) {
-      newErrors.time = 'La hora es requerida';
-    }
-    
-    if (!appointmentData.type) {
-      newErrors.type = 'El tipo de cita es requerido';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
-  // Función para insertar/actualizar mascota (CRUD)
-  const handleSavePet = () => {
-    if (!validatePetForm()) return;
+class AppCuidadoAnimal:
+    def __init__(self, ventana):
+        self.ventana = ventana
+        self.ventana.title(" App de Cuidado Animal")
+        self.ventana.geometry("900x650")
+        self.ventana.configure(bg="#f0f4f8")
+        
+        self.mascotas = []
+        self.mascota_seleccionada = None
+        
+        self.crear_interfaz()
+        self.cargar_datos()
 
-    if (editingPet) {
-      // Actualizar mascota existente
-      setPets(pets.map(pet => 
-        pet.id === editingPet.id 
-          ? { ...formData, id: editingPet.id }
-          : pet
-      ));
-      setEditingPet(null);
-    } else {
-      // Insertar nueva mascota
-      const newPet = {
-        ...formData,
-        id: Date.now(),
-        createdAt: new Date().toISOString()
-      };
-      setPets([...pets, newPet]);
-    }
+    def crear_interfaz(self):
+        # Frame principal con dos columnas
+        main_frame = tk.Frame(self.ventana, bg="#f0f4f8")
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-    // Resetear formulario
-    setFormData({
-      name: '',
-      species: '',
-      breed: '',
-      age: '',
-      weight: '',
-      owner: ''
-    });
-    setShowAddPet(false);
-    setErrors({});
-  };
+        # ============ COLUMNA IZQUIERDA: Formulario ============
+        left_frame = tk.Frame(main_frame, bg="white", relief=tk.RAISED, bd=2)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        
+        # Título
+        titulo = tk.Label(
+            left_frame,
+            text=" Registrar Mascota",
+            font=("Helvetica", 16, "bold"),
+            bg="white",
+            fg="#2c3e50"
+        )
+        titulo.pack(pady=15)
 
-  // Función para eliminar mascota
-  const handleDeletePet = (id) => {
-    if (window.confirm('¿Está seguro de eliminar esta mascota?')) {
-      setPets(pets.filter(pet => pet.id !== id));
-      // Eliminar citas asociadas
-      setAppointments(appointments.filter(apt => apt.petId !== id));
-    }
-  };
+        # Frame para campos del formulario
+        form_frame = tk.Frame(left_frame, bg="white")
+        form_frame.pack(padx=20, pady=10, fill=tk.BOTH)
 
-  // Función para editar mascota
-  const handleEditPet = (pet) => {
-    setFormData(pet);
-    setEditingPet(pet);
-    setShowAddPet(true);
-  };
+        # Campo Nombre
+        tk.Label(form_frame, text=" Nombre:", font=("Helvetica", 10), bg="white", anchor="w").grid(
+            row=0, column=0, sticky="w", pady=5
+        )
+        self.entry_nombre = tk.Entry(form_frame, font=("Helvetica", 10), width=25)
+        self.entry_nombre.grid(row=0, column=1, pady=5, padx=5)
 
-  // Función para agregar cita
-  const handleSaveAppointment = () => {
-    if (!validateAppointmentForm()) return;
+        # Campo Tipo
+        tk.Label(form_frame, text=" Tipo:", font=("Helvetica", 10), bg="white", anchor="w").grid(
+            row=1, column=0, sticky="w", pady=5
+        )
+        self.combo_tipo = ttk.Combobox(
+            form_frame,
+            values=["Perro", "Gato", "Conejo", "Hámster", "Pájaro", "Reptil", "Otro"],
+            font=("Helvetica", 10),
+            width=23,
+            state="readonly"
+        )
+        self.combo_tipo.grid(row=1, column=1, pady=5, padx=5)
+        self.combo_tipo.set("Perro")
 
-    const newAppointment = {
-      ...appointmentData,
-      id: Date.now(),
-      createdAt: new Date().toISOString()
-    };
-    
-    setAppointments([...appointments, newAppointment]);
-    setAppointmentData({
-      petId: '',
-      date: '',
-      time: '',
-      type: '',
-      notes: ''
-    });
-    setShowAddAppointment(false);
-    setErrors({});
-  };
+        # Campo Edad
+        tk.Label(form_frame, text=" Edad (años):", font=("Helvetica", 10), bg="white", anchor="w").grid(
+            row=2, column=0, sticky="w", pady=5
+        )
+        self.entry_edad = tk.Entry(form_frame, font=("Helvetica", 10), width=25)
+        self.entry_edad.grid(row=2, column=1, pady=5, padx=5)
 
-  // Algoritmo de búsqueda optimizado
-  const filteredPets = pets.filter(pet => {
-    const search = searchTerm.toLowerCase();
-    return (
-      pet.name.toLowerCase().includes(search) ||
-      pet.species.toLowerCase().includes(search) ||
-      pet.breed?.toLowerCase().includes(search) ||
-      pet.owner.toLowerCase().includes(search)
-    );
-  });
+        # Campo Peso
+        tk.Label(form_frame, text=" Peso (kg):", font=("Helvetica", 10), bg="white", anchor="w").grid(
+            row=3, column=0, sticky="w", pady=5
+        )
+        self.entry_peso = tk.Entry(form_frame, font=("Helvetica", 10), width=25)
+        self.entry_peso.grid(row=3, column=1, pady=5, padx=5)
 
-  // Obtener nombre de mascota por ID
-  const getPetName = (petId) => {
-    const pet = pets.find(p => p.id === parseInt(petId));
-    return pet ? pet.name : 'Mascota desconocida';
-  };
+        # Campo Necesidades
+        tk.Label(form_frame, text=" Necesidades:", font=("Helvetica", 10), bg="white", anchor="w").grid(
+            row=4, column=0, sticky="w", pady=5
+        )
+        self.text_necesidades = tk.Text(form_frame, font=("Helvetica", 10), width=25, height=4)
+        self.text_necesidades.grid(row=4, column=1, pady=5, padx=5)
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <Heart className="text-pink-500" size={32} />
-              <h1 className="text-3xl font-bold text-gray-800">Cuidado de Animales</h1>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setShowAddPet(true);
-                  setEditingPet(null);
-                  setFormData({
-                    name: '',
-                    species: '',
-                    breed: '',
-                    age: '',
-                    weight: '',
-                    owner: ''
-                  });
-                }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
-              >
-                <Plus size={20} />
-                <span className="hidden sm:inline">Nueva Mascota</span>
-              </button>
-              <button
-                onClick={() => setShowAddAppointment(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
-              >
-                <Calendar size={20} />
-                <span className="hidden sm:inline">Nueva Cita</span>
-              </button>
-            </div>
-          </div>
+        # Botones de acción
+        btn_frame = tk.Frame(left_frame, bg="white")
+        btn_frame.pack(pady=15)
 
-          {/* Barra de búsqueda */}
-          <div className="mt-4 relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, especie, raza o dueño..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-        </div>
+        self.btn_agregar = tk.Button(
+            btn_frame,
+            text=" Agregar Mascota",
+            command=self.agregar_mascota,
+            bg="#27ae60",
+            fg="white",
+            font=("Helvetica", 11, "bold"),
+            relief=tk.FLAT,
+            padx=20,
+            pady=8,
+            cursor="hand2"
+        )
+        self.btn_agregar.pack(side=tk.LEFT, padx=5)
 
-        {/* Modal para agregar/editar mascota */}
-        {showAddPet && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4">
-                {editingPet ? 'Editar Mascota' : 'Nueva Mascota'}
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
-                  />
-                  {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
-                </div>
+        self.btn_actualizar = tk.Button(
+            btn_frame,
+            text="✏️ Actualizar",
+            command=self.actualizar_mascota,
+            bg="#3498db",
+            fg="white",
+            font=("Helvetica", 11, "bold"),
+            relief=tk.FLAT,
+            padx=20,
+            pady=8,
+            cursor="hand2",
+            state=tk.DISABLED
+        )
+        self.btn_actualizar.pack(side=tk.LEFT, padx=5)
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Especie *
-                  </label>
-                  <select
-                    value={formData.species}
-                    onChange={(e) => setFormData({...formData, species: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.species ? 'border-red-500' : 'border-gray-300'}`}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="Perro">Perro</option>
-                    <option value="Gato">Gato</option>
-                    <option value="Ave">Ave</option>
-                    <option value="Conejo">Conejo</option>
-                    <option value="Otro">Otro</option>
-                  </select>
-                  {errors.species && <p className="text-red-500 text-sm mt-1">{errors.species}</p>}
-                </div>
+        btn_limpiar = tk.Button(
+            btn_frame,
+            text="🗑️ Limpiar",
+            command=self.limpiar_campos,
+            bg="#95a5a6",
+            fg="white",
+            font=("Helvetica", 11, "bold"),
+            relief=tk.FLAT,
+            padx=20,
+            pady=8,
+            cursor="hand2"
+        )
+        btn_limpiar.pack(side=tk.LEFT, padx=5)
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Raza
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.breed}
-                    onChange={(e) => setFormData({...formData, breed: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+        # ============ COLUMNA DERECHA: Lista y detalles ============
+        right_frame = tk.Frame(main_frame, bg="white", relief=tk.RAISED, bd=2)
+        right_frame.grid(row=0, column=1, sticky="nsew")
+        
+        # Configurar peso de columnas
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=2)
+        main_frame.rowconfigure(0, weight=1)
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Edad (años)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.age}
-                      onChange={(e) => setFormData({...formData, age: e.target.value})}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.age ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age}</p>}
-                  </div>
+        # Título lista
+        titulo_lista = tk.Label(
+            right_frame,
+            text=" Mascotas Registradas",
+            font=("Helvetica", 16, "bold"),
+            bg="white",
+            fg="#2c3e50"
+        )
+        titulo_lista.pack(pady=15)
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Peso (kg)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.weight}
-                      onChange={(e) => setFormData({...formData, weight: e.target.value})}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.weight ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.weight && <p className="text-red-500 text-sm mt-1">{errors.weight}</p>}
-                  </div>
-                </div>
+        # Búsqueda
+        search_frame = tk.Frame(right_frame, bg="white")
+        search_frame.pack(padx=20, pady=5)
+        
+        tk.Label(search_frame, text="BUSCAR", font=("Helvetica", 12), bg="white").pack(side=tk.LEFT)
+        self.entry_buscar = tk.Entry(search_frame, font=("Helvetica", 10), width=30)
+        self.entry_buscar.pack(side=tk.LEFT, padx=5)
+        self.entry_buscar.bind("<KeyRelease>", self.buscar_mascota)
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Dueño *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.owner}
-                    onChange={(e) => setFormData({...formData, owner: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.owner ? 'border-red-500' : 'border-gray-300'}`}
-                  />
-                  {errors.owner && <p className="text-red-500 text-sm mt-1">{errors.owner}</p>}
-                </div>
-              </div>
+        # Lista de mascotas con scrollbar
+        list_frame = tk.Frame(right_frame, bg="white")
+        list_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
 
-              <div className="flex gap-2 mt-6">
-                <button
-                  onClick={handleSavePet}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition"
-                >
-                  {editingPet ? 'Actualizar' : 'Guardar'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAddPet(false);
-                    setEditingPet(null);
-                    setErrors({});
-                  }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        scrollbar = tk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        {/* Modal para agregar cita */}
-        {showAddAppointment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4">Nueva Cita Veterinaria</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mascota *
-                  </label>
-                  <select
-                    value={appointmentData.petId}
-                    onChange={(e) => setAppointmentData({...appointmentData, petId: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.petId ? 'border-red-500' : 'border-gray-300'}`}
-                  >
-                    <option value="">Seleccionar mascota...</option>
-                    {pets.map(pet => (
-                      <option key={pet.id} value={pet.id}>
-                        {pet.name} - {pet.species}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.petId && <p className="text-red-500 text-sm mt-1">{errors.petId}</p>}
-                </div>
+        self.lista_mascotas = tk.Listbox(
+            list_frame,
+            font=("Helvetica", 10),
+            yscrollcommand=scrollbar.set,
+            selectmode=tk.SINGLE,
+            relief=tk.FLAT,
+            bg="#ecf0f1"
+        )
+        self.lista_mascotas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.lista_mascotas.yview)
+        self.lista_mascotas.bind("<<ListboxSelect>>", self.seleccionar_mascota)
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha *
-                  </label>
-                  <input
-                    type="date"
-                    value={appointmentData.date}
-                    onChange={(e) => setAppointmentData({...appointmentData, date: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.date ? 'border-red-500' : 'border-gray-300'}`}
-                  />
-                  {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date}</p>}
-                </div>
+        # Botones de gestión
+        btn_gestion_frame = tk.Frame(right_frame, bg="white")
+        btn_gestion_frame.pack(pady=10)
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hora *
-                  </label>
-                  <input
-                    type="time"
-                    value={appointmentData.time}
-                    onChange={(e) => setAppointmentData({...appointmentData, time: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.time ? 'border-red-500' : 'border-gray-300'}`}
-                  />
-                  {errors.time && <p className="text-red-500 text-sm mt-1">{errors.time}</p>}
-                </div>
+        tk.Button(
+            btn_gestion_frame,
+            text=" Ver Detalles",
+            command=self.ver_detalles,
+            bg="#3498db",
+            fg="white",
+            font=("Helvetica", 10, "bold"),
+            relief=tk.FLAT,
+            padx=15,
+            pady=5,
+            cursor="hand2"
+        ).pack(side=tk.LEFT, padx=5)
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo de Cita *
-                  </label>
-                  <select
-                    value={appointmentData.type}
-                    onChange={(e) => setAppointmentData({...appointmentData, type: e.target.value})}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${errors.type ? 'border-red-500' : 'border-gray-300'}`}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="Consulta General">Consulta General</option>
-                    <option value="Vacunación">Vacunación</option>
-                    <option value="Emergencia">Emergencia</option>
-                    <option value="Control">Control</option>
-                    <option value="Cirugía">Cirugía</option>
-                  </select>
-                  {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type}</p>}
-                </div>
+        tk.Button(
+            btn_gestion_frame,
+            text=" Agregar Cuidado",
+            command=self.agregar_cuidado,
+            bg="#9b59b6",
+            fg="white",
+            font=("Helvetica", 10, "bold"),
+            relief=tk.FLAT,
+            padx=15,
+            pady=5,
+            cursor="hand2"
+        ).pack(side=tk.LEFT, padx=5)
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notas
-                  </label>
-                  <textarea
-                    value={appointmentData.notes}
-                    onChange={(e) => setAppointmentData({...appointmentData, notes: e.target.value})}
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
+        tk.Button(
+            btn_gestion_frame,
+            text=" Eliminar",
+            command=self.eliminar_mascota,
+            bg="#e74c3c",
+            fg="white",
+            font=("Helvetica", 10, "bold"),
+            relief=tk.FLAT,
+            padx=15,
+            pady=5,
+            cursor="hand2"
+        ).pack(side=tk.LEFT, padx=5)
 
-              <div className="flex gap-2 mt-6">
-                <button
-                  onClick={handleSaveAppointment}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition"
-                >
-                  Guardar
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAddAppointment(false);
-                    setErrors({});
-                  }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        # Label contador
+        self.label_contador = tk.Label(
+            right_frame,
+            text="Total: 0 mascotas",
+            font=("Helvetica", 10),
+            bg="white",
+            fg="#7f8c8d"
+        )
+        self.label_contador.pack(pady=5)
 
-        {/* Lista de mascotas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {filteredPets.length === 0 ? (
-            <div className="col-span-full bg-white rounded-lg shadow p-8 text-center">
-              <Activity className="mx-auto text-gray-400 mb-4" size={48} />
-              <p className="text-gray-600">
-                {searchTerm ? 'No se encontraron mascotas' : 'No hay mascotas registradas'}
-              </p>
-            </div>
-          ) : (
-            filteredPets.map(pet => (
-              <div key={pet.id} className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">{pet.name}</h3>
-                    <p className="text-gray-600">{pet.species}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditPet(pet)}
-                      className="text-blue-600 hover:text-blue-800 transition"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDeletePet(pet.id)}
-                      className="text-red-600 hover:text-red-800 transition"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2 text-sm">
-                  {pet.breed && <p><strong>Raza:</strong> {pet.breed}</p>}
-                  {pet.age && <p><strong>Edad:</strong> {pet.age} años</p>}
-                  {pet.weight && <p><strong>Peso:</strong> {pet.weight} kg</p>}
-                  <p><strong>Dueño:</strong> {pet.owner}</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+    def agregar_mascota(self):
+        nombre = self.entry_nombre.get().strip()
+        tipo = self.combo_tipo.get()
+        edad = self.entry_edad.get().strip()
+        peso = self.entry_peso.get().strip()
+        necesidades = self.text_necesidades.get("1.0", tk.END).strip()
 
-        {/* Lista de citas */}
-        {appointments.length > 0 && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              <Calendar className="text-green-600" />
-              Próximas Citas
+        if not nombre or not edad or not peso:
+            messagebox.showwarning(" Campos incompletos", "Por favor completa los campos: Nombre, Edad y Peso.")
+            return
+
+        try:
+            edad = int(edad)
+            peso = float(peso)
+            if edad < 0 or peso < 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror(" Error", "Edad y Peso deben ser números positivos.")
+            return
+
+        mascota = Mascota(nombre, tipo, edad, peso, necesidades)
+        self.mascotas.append(mascota)
+        self.actualizar_lista()
+        self.limpiar_campos()
+        self.guardar_datos()
+        messagebox.showinfo(" Éxito", f"¡{nombre} ha sido registrado(a) exitosamente!")
+
+    def actualizar_mascota(self):
+        if self.mascota_seleccionada is None:
+            messagebox.showwarning(" Advertencia", "Por favor selecciona una mascota para actualizar.")
+            return
+
+        nombre = self.entry_nombre.get().strip()
+        tipo = self.combo_tipo.get()
+        edad = self.entry_edad.get().strip()
+        peso = self.entry_peso.get().strip()
+        necesidades = self.text_necesidades.get("1.0", tk.END).strip()
+
+        if not nombre or not edad or not peso:
+            messagebox.showwarning(" Campos incompletos", "Por favor completa todos los campos obligatorios.")
+            return
+
+        try:
+            edad = int(edad)
+            peso = float(peso)
+            if edad < 0 or peso < 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror(" Error", "Edad y Peso deben ser números positivos.")
+            return
+
+        mascota = self.mascotas[self.mascota_seleccionada]
+        mascota.nombre = nombre
+        mascota.tipo = tipo
+        mascota.edad = edad
+        mascota.peso = peso
+        mascota.necesidades = necesidades
+
+        self.actualizar_lista()
+        self.limpiar_campos()
+        self.guardar_datos()
+        messagebox.showinfo(" Actualizado", f"¡{nombre} ha sido actualizado(a) exitosamente!")
+
+    def seleccionar_mascota(self, event):
+        seleccion = self.lista_mascotas.curselection()
+        if not seleccion:
+            return
+
+        index = seleccion[0]
+        self.mascota_seleccionada = index
+        mascota = self.mascotas[index]
+
+        self.entry_nombre.delete(0, tk.END)
+        self.entry_nombre.insert(0, mascota.nombre)
+        
+        self.combo_tipo.set(mascota.tipo)
+        
+        self.entry_edad.delete(0, tk.END)
+        self.entry_edad.insert(0, mascota.edad)
+        
+        self.entry_peso.delete(0, tk.END)
+        self.entry_peso.insert(0, mascota.peso)
+        
+        self.text_necesidades.delete("1.0", tk.END)
+        self.text_necesidades.insert("1.0", mascota.necesidades)
+
+        self.btn_actualizar.config(state=tk.NORMAL)
+        self.btn_agregar.config(state=tk.DISABLED)
+
+    def ver_detalles(self):
+        seleccion = self.lista_mascotas.curselection()
+        if not seleccion:
+            messagebox.showinfo("ℹ Información", "Por favor selecciona una mascota.")
+            return
+
+        index = seleccion[0]
+        m = self.mascotas[index]
+
+        detalles = f"""
+ INFORMACIÓN DE LA MASCOTA
+
+ Nombre: {m.nombre}
+ Tipo: {m.tipo}
+ Edad: {m.edad} años
+ Peso: {m.peso} kg
+ Registrado: {m.fecha_registro}
+
+ Necesidades:
+{m.necesidades if m.necesidades else 'Ninguna especificada'}
+
+ Historial de Cuidados ({len(m.historial_cuidados)}):
+"""
+        if m.historial_cuidados:
+            for cuidado in m.historial_cuidados[-5:]:  # Últimos 5
+                detalles += f"\n• {cuidado['fecha']}: {cuidado['descripcion']}"
+        else:
+            detalles += "\nSin registros aún"
+
+        messagebox.showinfo(" Detalles de la Mascota", detalles)
+
+    def agregar_cuidado(self):
+        seleccion = self.lista_mascotas.curselection()
+        if not seleccion:
+            messagebox.showinfo("ℹ Información", "Por favor selecciona una mascota.")
+            return
+
+        # Ventana para agregar cuidado
+        ventana_cuidado = tk.Toplevel(self.ventana)
+        ventana_cuidado.title("Agregar Cuidado")
+        ventana_cuidado.geometry("400x200")
+        ventana_cuidado.configure(bg="white")
+        ventana_cuidado.transient(self.ventana)
+        ventana_cuidado.grab_set()
+
+        tk.Label(
+            ventana_cuidado,
+            text=" Descripción del Cuidado:",
+            font=("Helvetica", 11, "bold"),
+            bg="white"
+        ).pack(pady=10)
+
+        text_cuidado = tk.Text(ventana_cuidado, font=("Helvetica", 10), width=40, height=5)
+        text_cuidado.pack(pady=10, padx=20)
+
+        def guardar_cuidado():
+            descripcion = text_cuidado.get("1.0", tk.END).strip()
+            if not descripcion:
+                messagebox.showwarning(" Advertencia", "Por favor escribe una descripción.")
+                return
+            
+            index = seleccion[0]
+            self.mascotas[index].agregar_cuidado(descripcion)
+            self.guardar_datos()
+            messagebox.showinfo(" Éxito", "¡Cuidado registrado exitosamente!")
+            ventana_cuidado.destroy()
+
+        tk.Button(
+            ventana_cuidado,
+            text=" Guardar",
+            command=guardar_cuidado,
+            bg="#27ae60",
+            fg="white",
+            font=("Helvetica", 10, "bold"),
+            relief=tk.FLAT,
+            padx=20,
+            pady=5,
+            cursor="hand2"
+        ).pack(pady=10)
+
+    def eliminar_mascota(self):
+        seleccion = self.lista_mascotas.curselection()
+        if not seleccion:
+            messagebox.showinfo("ℹ Información", "Por favor selecciona una mascota.")
+            return
+
+        index = seleccion[0]
+        nombre = self.mascotas[index].nombre
+
+        confirmar = messagebox.askyesno(
+            "⚠️ Confirmar Eliminación",
+            f"¿Estás seguro de eliminar a {nombre}?\nEsta acción no se puede deshacer."
+        )
+
+        if confirmar:
+            del self.mascotas[index]
+            self.actualizar_lista()
+            self.limpiar_campos()
+            self.guardar_datos()
+            messagebox.showinfo(" Eliminado", f"{nombre} ha sido eliminado(a) del sistema.")
+
+    def buscar_mascota(self, event):
+        termino = self.entry_buscar.get().lower()
+        self.lista_mascotas.delete(0, tk.END)
+
+        for mascota in self.mascotas:
+            if termino in mascota.nombre.lower() or termino in mascota.tipo.lower():
+                self.lista_mascotas.insert(tk.END, str(mascota))
+
+        if not termino:
+            self.actualizar_lista()
+
+    def actualizar_lista(self):
+        self.lista_mascotas.delete(0, tk.END)
+        for mascota in self.mascotas:
+            self.lista_mascotas.insert(tk.END, str(mascota))
+        
+        self.label_contador.config(text=f"Total: {len(self.mascotas)} mascota(s)")
+
+    def limpiar_campos(self):
+        self.entry_nombre.delete(0, tk.END)
+        self.combo_tipo.set("Perro")
+        self.entry_edad.delete(0, tk.END)
+        self.entry_peso.delete(0, tk.END)
+        self.text_necesidades.delete("1.0", tk.END)
+        self.mascota_seleccionada = None
+        self.btn_actualizar.config(state=tk.DISABLED)
+        self.btn_agregar.config(state=tk.NORMAL)
+
+    def guardar_datos(self):
+        try:
+            with open("mascotas_data.json", "w", encoding="utf-8") as f:
+                datos = [m.to_dict() for m in self.mascotas]
+                json.dump(datos, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error al guardar: {e}")
+
+    def cargar_datos(self):
+        try:
+            with open("mascotas_data.json", "r", encoding="utf-8") as f:
+                datos = json.load(f)
+                self.mascotas = [Mascota.from_dict(d) for d in datos]
+                self.actualizar_lista()
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            print(f"Error al cargar: {e}")
+
+
+# Crear y ejecutar la aplicación
+if __name__ == "__main__":
+    ventana = tk.Tk()
+    app = AppCuidadoAnimal(ventana)
+    ventana.mainloop()
